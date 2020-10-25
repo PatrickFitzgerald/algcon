@@ -1,0 +1,11 @@
+Questions and Concerns
+  • How do I discern between struct fields and wrapper methods?
+
+Feature ideas
+  • Automatic unit conversion
+    - in source code, search for declare('v.myLength_cm',simple.LENGTH)
+	- this wouldn't be included inside the parsed snippet code, but would let me use something like a pseudo snippet where the _cm could be swapped out for anything like _in _inch _inches _m _meter _meters and auto-generate a unit conversion snippet for whatever's needed.
+	- There would be several packages supplied to the user, and for their specific needs, they could easily make more to extend the conversion flexibility.
+  • Construct loops
+  • Construct optimization sequences
+  • 
