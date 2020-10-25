@@ -1,11 +1,18 @@
 Questions and Concerns
   • How do I discern between struct fields and wrapper methods?
+  • Maybe throw a warning/error when both v.abc and v.abc.xyz are used 
 
-Feature ideas
+Feature Ideas
   • Automatic unit conversion
     - in source code, search for declare('v.myLength_cm',simple.LENGTH)
 	- this wouldn't be included inside the parsed snippet code, but would let me use something like a pseudo snippet where the _cm could be swapped out for anything like _in _inch _inches _m _meter _meters and auto-generate a unit conversion snippet for whatever's needed.
 	- There would be several packages supplied to the user, and for their specific needs, they could easily make more to extend the conversion flexibility.
+	- If these conversions get used, add a comment at the top of the generated code, or before the first use of the variable, etc, which describes what type of variable it is, and lists out associated InfoNode names used in the document.
   • Construct loops
   • Construct optimization sequences
   • 
+
+Guiding Principles
+  • Variables (etc) mean a consistent thing. Updating variables becomes ambiguous, so it's assumed that they are defined only once. Updating variables might work like you want, but it's not designed for that.
+  • Avoid indexing into variables from their InfoNode accessible names. Save off a copy of the variable to avoid confusion.
+  • Since v.abc and v.abc.xyz are treated as distinct, don't grab a whole set of parameters saved in v.abc, which would be easier, but requires extensive knowledge on the contents of v.abc to plan for.
