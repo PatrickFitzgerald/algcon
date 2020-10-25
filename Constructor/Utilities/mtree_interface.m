@@ -34,14 +34,6 @@ classdef mtree_interface < mtree
 			this.types = types_;
 		end
 		
-		% Hack function, the primary way to get the information out of the
-		% original mtree object.
-		function [info,strings,charLineRefs] = hack(this)
-			info = this.T;
-			strings = this.C;
-			charLineRefs = this.lnos;
-		end
-		
 		function [line,column] = charPosToLineColumn(this,charPos)
 			line = find(charPos > this.lineStarts,1,'first');
 			column = charPos - this.lineStarts(line);
