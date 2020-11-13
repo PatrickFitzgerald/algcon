@@ -1,6 +1,8 @@
 Questions and Concerns
   • How do I discern between struct fields and wrapper methods?
   • Maybe throw a warning/error when both v.abc and v.abc.xyz are used 
+  • Throw a warning/error if a snippet is found to contain no info nodes.
+    - This could be when an invalid name is passed to the Conversion objects.
 
 Feature Ideas
   • Automatic unit conversion
@@ -8,6 +10,8 @@ Feature Ideas
 	- this wouldn't be included inside the parsed snippet code, but would let me use something like a pseudo snippet where the _cm could be swapped out for anything like _in _inch _inches _m _meter _meters and auto-generate a unit conversion snippet for whatever's needed.
 	- There would be several packages supplied to the user, and for their specific needs, they could easily make more to extend the conversion flexibility.
 	- If these conversions get used, add a comment at the top of the generated code, or before the first use of the variable, etc, which describes what type of variable it is, and lists out associated InfoNode names used in the document.
+	- The conversions should not be added to the snippets until the processing starts.
+	- The conversions should not be added more than once.
   • Construct loops
   • Construct optimization sequences
   • 

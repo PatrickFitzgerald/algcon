@@ -21,6 +21,12 @@ classdef AlgorithmConstructor < handle
 		infoNodeTypes = {};
 	end
 	
+	properties (GetAccess = public, Constant)
+		% One more \n than necessary so 'abc' and 'xyz' concatenated with
+		% this will also be separate lines.
+		snippetSeparator = sprintf('\n\n\n');
+	end
+	
 	methods (Access = public)
 		
 		% Constructor
@@ -40,72 +46,40 @@ classdef AlgorithmConstructor < handle
 		end
 		
 		% Adds a snippet from a charvector
-		function snippetID = addSnippet(this,snippet)
+		function snippetID = addSnippet(this,snippetSource)
 			
-			% Clean up the snippet
-			snippet = this.tidySnippet(snippet);
+			% Generate a code snippet from this source code
+			cs = this.generateUserCodeSnippet(snippetSource);
 			
-			% Generate the CodeSnippet object
-			cs = CodeSnippet(snippet);
-			% Store it
-			this.snippets(1,end+1) = cs;
-			
-			% Extract it's snippet ID
-			snippetID = cs.snippetID;
-			
-			% Analyze the code provided, and return the InfoNode details
-			% from that snippet.
-			infoNodeDetails = cs.analyze(this.infoNodeTypes);
-			
-			
-			% Now add the information to the InfoNodes. If the
-			% corresponding InfoNode does not yet exist, create it.
-			for detailInd = 1:numel(infoNodeDetails)
-				detail = infoNodeDetails(detailInd);
-				
-				% Look for the corresponding info node
-				infoNodeSubset = this.infoNodes.find(detail.type,detail.name);
-				if isempty(infoNodeSubset)
-					% Create node from scratch
-					infoNode_ = this.createInfoNode(detail.type,detail.name);
-					% Append
-					this.infoNodes(1,end+1) = infoNode_;
-					infoNodeSubset = infoNode_;
-				end
-				
-				% Mark this snippet as providing a definition or simple use
-				% of the specified node.
-				if detail.isDef
-					infoNodeSubset.addDef(snippetID);
-				elseif detail.isUse
-					infoNodeSubset.addUse(snippetID);
-				end % There are cases which are not defs or uses. Do nothing with them
-				
-			end
+			% Formally import the code snippet
+			snippetID = this.importCodeSnippets(cs);
 			
 		end
 		
 		% Splits up the provided manySnippets by searching for 2
 		% consecutive empty lines (whitespace only). Each snippet
-		% is the passed to addSnippet()
-		function snippetIDs = addSnippets(this,manySnippets)
+		% is effectively passed to addSnippet()
+		function snippetIDs = addSnippets(this,manySnippetSources)
 			
-			minConsecutiveStreak = 2;
+			minConsecutiveStreak = 2; % Corresponds to snippetSeparator property
 			
 			% Search for lines to split at.
 			% Determine what's on each line, and where those lines start.
 			% This necessarily has exactly one match per line.
-			[nontrivialLineContent,lineStartInds] = regexp(manySnippets,'[ \t]*([^\s]?.*)','tokens','dotexceptnewline');
+			[nontrivialLineContent,lineStartInds] = regexp(manySnippetSources,'[ \t]*([^\s]?.*)\n?','tokens','dotexceptnewline');
+			% \n? means catch anywhere an newline is, but also don't reject
+			% the last line.
 			% This is a cell of cells of one char vector. Remove that
 			% unnecessary layer of cells
 			nontrivialLineContent = cellfun(@(cellchar) cellchar{1}, nontrivialLineContent, 'UniformOutput', false)';
+			
 			
 			% Determine whether each line is empty
 			lineIsEmpty = cellfun(@isempty,nontrivialLineContent);
 			% Determine the consecutivity of emptiness
 			numLines = numel(lineIsEmpty);
 			consecutiveEmptyRunning = nan(numLines+1,1); % Line 1 is index 2 here.
-			consecutiveEmptyRunning(1) = 0; % This serves as an initial condition for the bottom loop. Prevents the need for several IF blocks
+			consecutiveEmptyRunning(1) = 0; % This serves as an initial condition for the bottom loop. Prevents the need for several IF blocks.
 			consecutiveRunEndLines = nan(0,1);
 			for lineInd = 1:numLines
 				if lineIsEmpty(lineInd)
@@ -136,38 +110,120 @@ classdef AlgorithmConstructor < handle
 			% Concatenate all of these starts and ends. Reshape them to
 			% have all the starts in column 1, and all the ends on column
 			% 2. If everything is empty, this should still be fine.
-			snippetLineStartStops = reshape( [startLine;lineBeforeBlanks;lineAfterBlanks;lastLine], 2, [])';
+			if numel(lineAfterBlanks)>0 && lineAfterBlanks(1) ~= startLine
+				snippetLineStartStops = [[startLine;lineAfterBlanks],[lineBeforeBlanks;lastLine]];
+			else
+				snippetLineStartStops = [[startLine;lineAfterBlanks(2:end)],[lineBeforeBlanks(2:end);lastLine]];
+			end
 			
 			% Do some bookkeeping on which chars the lines start and end
 			% on. line k is all the text between lineBoundaryChars(k) and
 			% lineBoundaryChars(k+1)-1
-			lineBoundaryChars = [lineStartInds';numel(manySnippets)+1];
+			lineBoundaryChars = [lineStartInds';numel(manySnippetSources)+1];
 			
-			% Now, loop over these snippets and pass them off to addSnippet
-			snippetIDs = nan(1,size(snippetLineStartStops,1));
-			for rawSnippetInd = 1:numel(snippetIDs)
+			% Now, loop over these pieces of source code and generate
+			% actual code snippet objects
+			codeSnippets = CodeSnippet.empty(1,0);
+			for rawSnippetInd = 1:size(snippetLineStartStops,1)
 				% Extract this snippet
 				snippetStartLine = snippetLineStartStops(rawSnippetInd,1);
 				snippetEndLine   = snippetLineStartStops(rawSnippetInd,2);
 				snippetStartChar = lineBoundaryChars(snippetStartLine);
 				snippetEndChar   = lineBoundaryChars(snippetEndLine+1)-1;
-				snippetCode = manySnippets(snippetStartChar:snippetEndChar);
-				% Formally add the snippet to the AlgorithmConstructor
-				snippetIDs(rawSnippetInd) = this.addSnippet(snippetCode);
+				snippetCode = manySnippetSources(snippetStartChar:snippetEndChar);
+				if numel(snippetCode) == 0 % Don't add empty snippets
+					continue
+				end
+				
+				% Create a code snippet object for this source code
+				codeSnippets(1,rawSnippetInd) = this.generateUserCodeSnippet(snippetCode);
+				
 			end
+			
+			% Formally add the snippets to the AlgorithmConstructor
+			snippetIDs = this.importCodeSnippets(codeSnippets);
 			
 		end
 		
 		function doStuff(this)
 			
+			% First, clean out the info nodes which we simply cannot
+			% define.
 			
 			
-			
+		end
+		
+		function assume_conversion(this,conversionObject)
+			conversionSnippets = conversionObject.generateConversions();
+			this.importCodeSnippets(conversionSnippets);
 		end
 		
 	end
 	
 	methods (Access = private)
+		
+		function cs = generateUserCodeSnippet(this,sourceCode)
+			
+			% Clean up the snippet
+			snippetSource = this.tidySnippet(sourceCode);
+			
+			% Generate the CodeSnippet object, specifically one meant for
+			% parsing user inputs
+			cs = ParsedSnippet(snippetSource);
+			
+		end
+		
+		function snippetIDs = importCodeSnippets(this,codeSnippets)
+			
+			numCS = numel(codeSnippets);
+			
+			% Allocate storage
+			snippetIDs = nan(1,numCS);
+			
+			% Store the code snippets
+			this.snippets(1,end+(1:numCS)) = codeSnippets(:)';
+			
+			% Extract the infoNode interactions from all snippets
+			for snippetInd = 1:numCS
+				
+				% Pull of one snippet to analyze at a time.
+				cs = codeSnippets(snippetInd);
+				
+				% Extract it's snippet ID
+				snippetIDs(snippetInd) = cs.snippetID;
+				
+				% Analyze the code provided, and return the InfoNode details
+				% from that snippet.
+				infoNodeDetails = cs.analyze(this.infoNodeTypes);
+				
+				
+				% Now add the information to the InfoNodes. If the
+				% corresponding InfoNode does not yet exist, create it.
+				for detailInd = 1:numel(infoNodeDetails)
+					detail = infoNodeDetails(detailInd);
+					
+					% Look for the corresponding info node
+					infoNodeSubset = this.infoNodes.find(detail.type,detail.name);
+					if isempty(infoNodeSubset)
+						% Create node from scratch
+						infoNode_ = this.createInfoNode(detail.type,detail.name);
+						% Append
+						this.infoNodes(1,end+1) = infoNode_;
+						infoNodeSubset = infoNode_;
+					end
+					
+					% Mark this snippet as providing a definition or simple use
+					% of the specified node.
+					if detail.isDef
+						infoNodeSubset.addDef(snippetIDs(snippetInd));
+					elseif detail.isUse
+						infoNodeSubset.addUse(snippetIDs(snippetInd));
+					end % There are cases which are not defs or uses. Do nothing with them
+					
+				end
+			end
+			
+		end
 		
 		% Creates the appropriate InfoNode from scratch
 		function infoNode_ = createInfoNode(this,type_,name_)

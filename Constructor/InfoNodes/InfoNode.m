@@ -67,4 +67,35 @@ classdef InfoNode < handle & matlab.mixin.Heterogeneous % handle class which can
 		
 	end
 	
+	methods (Access = public, Sealed, Static)
+		
+		% This method searches through a list of fullNames, and finds any
+		% of those which match the expected form with on any of the
+		% supported nodeTypes. wasMatch will be true if it matched an
+		% expected form, and type,name will be the corresponding split
+		% InfoNode type and name that such a fullName would correspond to.
+		function [wasMatch,type,name] = match(fullNames,nodeTypes)
+			
+			% Sanitize inputs
+			if ~iscell(fullNames)
+				fullNames = {fullName};
+			end
+			fullNames = fullNames(:);
+			nodeTypes = nodeTypes(:)';
+			
+			% Find anything of the form TYPE.OTHERTEXT
+			form = ['^([',sprintf(repmat('(?:%s)',1,numel(nodeTypes)),nodeTypes{:}),'])\.([^\s\$\#]*)'];
+			matchInfo = regexp(fullNames,form,'tokens');
+			
+			% Format the outputs
+			wasMatch = cellfun(@(mI)numel(mI)~=0,matchInfo);
+			type = cell(size(wasMatch));
+			name = cell(size(wasMatch));
+			type(wasMatch) = cellfun(@(mI)mI{1}{1},matchInfo(wasMatch),'UniformOutput',false);
+			name(wasMatch) = cellfun(@(mI)mI{1}{2},matchInfo(wasMatch),'UniformOutput',false);
+			
+		end
+		
+	end
+	
 end

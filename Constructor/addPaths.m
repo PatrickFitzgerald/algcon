@@ -2,3 +2,4 @@
 
 addpath('InfoNodes')
 addpath('Utilities')
+addpath('../Packages')
