@@ -4,7 +4,7 @@ classdef InfoNodeUnitTest < matlab.unittest.TestCase
 		
 		% Confirms the complicated code inside InfoNode.find() is working
 		% correctly.
-		function findTest(testCase)
+		function findManyTest(testCase)
 			
 			infoNodes = InfoNode.empty(1,0);
 			infoNodes(1) = Constant('speedOfLight_mps');
@@ -39,6 +39,32 @@ classdef InfoNodeUnitTest < matlab.unittest.TestCase
 			];
 			
 			testCase.verifyEqual(actMatches,expMatches);
+			
+		end
+		
+		% Confirms the special case type-only matching code inside
+		% InfoNode.find()
+		function findTypeOnlyTest(testCase)
+			
+			infoNodes = InfoNode.empty(1,0);
+			infoNodes(1) = Constant('speedOfLight_mps');
+			infoNodes(2) = Constant('electronCharge_C');
+			infoNodes(3) = Variable('myVar1');
+			infoNodes(4) = Wrapper('MyWrapper');
+			% omitting Output object
+			
+			testCase.verifyEqual(...
+				infoNodes.find(Constant.type,'*'),...
+				[1;2]);
+			testCase.verifyEqual(...
+				infoNodes.find(Variable.type,'*'),...
+				3);
+			testCase.verifyEqual(...
+				infoNodes.find(Wrapper.type,'*'),...
+				4);
+			testCase.verifyEqual(...
+				infoNodes.find(Output.type,'*'),...
+				[]);
 			
 		end
 		

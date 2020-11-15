@@ -37,11 +37,25 @@ classdef InfoNode < handle & matlab.mixin.Heterogeneous % handle class which can
 			end
 		end
 		
-		% 
+		% For sets of query "q" types and names, returns the corresponding
+		% indices that are found. These indices index "this". If there's
+		% only one search pair, the types and names can be passed as either
+		% charvectors or cells of charvectors. If there are more than one
+		% search pair, they must be cells of charvectors.
+		% If you only want to find a certain type but not constrain the
+		% results to match a certain name, enter only one pair as
+		% charvectors (not cells) and leave qNames as '*' an asterisk
+		% representing a wildcard. This does not support multiple search
+		% pairs. The wildcard behavior is not supported for any other
+		% behavior.
 		function tIndFound = find(this,qTypes,qNames)
 			
 			% Support simpler input
+			matchTypeOnly = false;
 			if ischar(qTypes) && ischar(qNames)
+				if strcmp(qNames,'*')
+					matchTypeOnly = true;
+				end
 				qTypes = {qTypes};
 				qNames = {qNames};
 			elseif ~(~ischar(qTypes) && ~ischar(qNames))
@@ -61,6 +75,7 @@ classdef InfoNode < handle & matlab.mixin.Heterogeneous % handle class which can
 			% Reduce to unique representation
 			[tTypesUniq,~,tOrigToUniq] = unique(tTypes);
 			[qTypesUniq,~,qOrigToUniq] = unique(qTypes);
+			
 			% Create a way to map an index in the respective unique entry
 			% to the set of indices which matched that unique entry.
 			tMapToInds = accumarray(tOrigToUniq,(1:numel(tOrigToUniq))',[numel(tTypesUniq),1],@(indList){indList});
@@ -72,6 +87,19 @@ classdef InfoNode < handle & matlab.mixin.Heterogeneous % handle class which can
 			% Find pairs of which of the unique type entries match up to
 			% each other between the q and t sets.
 			[qMatch,tMatch] = find(typeMatches);
+			
+			
+			% If we're using the wildcard behavior, grab the matched
+			% indices for the provided type (necessarily exactly one qType,
+			% not necessarily any matches).
+			if matchTypeOnly
+				if numel(tMatch) > 0
+					tIndFound = tMapToInds{tMatch(1)};
+				else
+					tIndFound = [];
+				end
+				return
+			end
 			
 			
 			% Preallocate output. qInds below indexes this, and will insert
