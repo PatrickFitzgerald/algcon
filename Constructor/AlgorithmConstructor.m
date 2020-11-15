@@ -177,50 +177,75 @@ classdef AlgorithmConstructor < handle
 			
 			numCS = numel(codeSnippets);
 			
-			% Allocate storage
-			snippetIDs = nan(1,numCS);
-			
 			% Store the code snippets
 			this.snippets(1,end+(1:numCS)) = codeSnippets(:)';
+			snippetIDs = reshape([codeSnippets.snippetID],1,numCS);
 			
-			% Extract the infoNode interactions from all snippets
-			for snippetInd = 1:numCS
+			% Extract the info node usage details all at once.
+			infoNodeDetailsCell = arrayfun(@(cs) cs.analyze(this.infoNodeTypes), codeSnippets, 'UniformOutput',false);
+			numDetails = cellfun(@numel,infoNodeDetailsCell);
+			
+			% Merge these results into one large list, but keep track of
+			% which snippets they came from.
+			allInfoNodeDetails = cat(1,infoNodeDetailsCell{:});
+			snippetIDsStretched = repelem(snippetIDs,numDetails);
+			
+			allVarNames = arrayfun(@(detail)[detail.type,'.',detail.name],allInfoNodeDetails,'UniformOutput',false);
+			[uniqVarNames,uniqToFirstOrig,origToUniq] = unique(allVarNames);
+			
+			uniqTypes = {allInfoNodeDetails(uniqToFirstOrig).type};
+			uniqNames = {allInfoNodeDetails(uniqToFirstOrig).name};
+			
+			% Compare with the entries saved in this.infoNodes, and report
+			% any matches. The result will be nan if no match to an
+			% existing InfoNode is found. Otherwise, it will be an integer
+			% which indexes this.infoNodes.
+			matchedExistingINs = this.infoNodes.find(uniqTypes,uniqNames);
+			
+			% Make a new InfoNode for each which does not yet exist.
+			numExistingINs = numel(this.infoNodes);
+			newINinds = [];
+			nextINind = numExistingINs+1;
+			newInfoNodes = InfoNode.empty(0,1);
+			missingTypeNamePairs = find(isnan(matchedExistingINs))';
+			for uncreatedINind = missingTypeNamePairs
+				newINinds(end+1) = nextINind;
+				newInfoNodes(end+1) = this.createInfoNode(uniqTypes{uncreatedINind},uniqNames{uncreatedINind});
+				nextINind = nextINind + 1;
+			end
+			% Now add these onto the list
+			this.infoNodes(newINinds) = newInfoNodes;
+			% Update the match results from earlier to include these new
+			% entries, as if they had existed before the find() call.
+			matchedExistingINs(missingTypeNamePairs) = newINinds;
+			
+			
+			% Now, assign all information described in allInfoNodeDetails
+			% to their corresponding InfoNode. snippetIDsStretched
+			% specifies the snippet index for each entry of the details.
+			% origToUniq captures how the details map to the unique info
+			% nodes.
+			% Gather all the snippet IDs by the info nodes they define, and
+			% again by the info nodes they use.
+			isDef = [allInfoNodeDetails.isDef];
+			isUse = [allInfoNodeDetails.isUse];
+			
+			% Create a map from unique info node to the details which
+			% reference it.
+			detRefUniqINs = accumarray(origToUniq,(1:numel(origToUniq))',[numel(uniqToFirstOrig),1],@(indList){indList});
+			% Details referencing unique InfoNodes
+			
+			% Loop over each unique info node to apply the relevant info
+			for uniqINind = 1:numel(matchedExistingINs)
+				referencedDetails = detRefUniqINs{uniqINind}; % indexes allInfoNodeDetails
+				sourceSnippetIDs = snippetIDsStretched(referencedDetails);
+				isDefSubset = isDef(referencedDetails);
+				isUseSubset = isUse(referencedDetails);
 				
-				% Pull of one snippet to analyze at a time.
-				cs = codeSnippets(snippetInd);
-				
-				% Extract it's snippet ID
-				snippetIDs(snippetInd) = cs.snippetID;
-				
-				% Analyze the code provided, and return the InfoNode details
-				% from that snippet.
-				infoNodeDetails = cs.analyze(this.infoNodeTypes);
-				
-				
-				% Now add the information to the InfoNodes. If the
-				% corresponding InfoNode does not yet exist, create it.
-				for detailInd = 1:numel(infoNodeDetails)
-					detail = infoNodeDetails(detailInd);
-					
-					% Look for the corresponding info node
-					infoNodeSubset = this.infoNodes.find(detail.type,detail.name);
-					if isempty(infoNodeSubset)
-						% Create node from scratch
-						infoNode_ = this.createInfoNode(detail.type,detail.name);
-						% Append
-						this.infoNodes(1,end+1) = infoNode_;
-						infoNodeSubset = infoNode_;
-					end
-					
-					% Mark this snippet as providing a definition or simple use
-					% of the specified node.
-					if detail.isDef
-						infoNodeSubset.addDef(snippetIDs(snippetInd));
-					elseif detail.isUse
-						infoNodeSubset.addUse(snippetIDs(snippetInd));
-					end % There are cases which are not defs or uses. Do nothing with them
-					
-				end
+				% Add the defs
+				this.infoNodes(matchedExistingINs(uniqINind)).addDef(sourceSnippetIDs(isDefSubset));
+				% Add the uses
+				this.infoNodes(matchedExistingINs(uniqINind)).addUse(sourceSnippetIDs(isUseSubset));
 			end
 			
 		end

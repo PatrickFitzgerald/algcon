@@ -7,10 +7,10 @@ classdef Output < InfoNode
 	methods (Access = public)
 		
 		% Constructor
-		function this = Output(wrapperName)
+		function this = Output(outputName)
 			
 			% Call superclass constructor
-			this = this@InfoNode(wrapperName);
+			this = this@InfoNode(outputName);
 			
 		end
 		

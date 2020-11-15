@@ -7,10 +7,10 @@ classdef Constant < InfoNode
 	methods (Access = public)
 		
 		% Constructor
-		function this = Constant(wrapperName)
+		function this = Constant(constantName)
 			
 			% Call superclass constructor
-			this = this@InfoNode(wrapperName);
+			this = this@InfoNode(constantName);
 			
 		end
 		

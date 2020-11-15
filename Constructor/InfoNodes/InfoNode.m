@@ -37,31 +37,75 @@ classdef InfoNode < handle & matlab.mixin.Heterogeneous % handle class which can
 			end
 		end
 		
-		% Returns the subset of InfoNode array 'this' which matches the
-		% specified type and name. 
-		function sub = find(this,type_,name_)
+		% 
+		function tIndFound = find(this,qTypes,qNames)
 			
-			% Validate the inputs
-			if ~( isscalar(type_) && ischar(type_) )
-				error('type_ needs to be a single character');
+			% Support simpler input
+			if ischar(qTypes) && ischar(qNames)
+				qTypes = {qTypes};
+				qNames = {qNames};
+			elseif ~(~ischar(qTypes) && ~ischar(qNames))
+				error('Charvector inputs or cell array of charvector inputs are required.')
+			elseif numel(qTypes) ~= numel(qNames)
+				error('Types and names must come in pairs.');
 			end
-			if ~( isrow(name_) && ischar(name_) ) % huh, who knew that was a function? neat.
-				error('name_ needs to be a character vector');
-			end
+			
+			% Reshape for ease of processing below.
+			qTypes = qTypes(:);
+			qNames = qNames(:);
 			
 			% Extract a list of types and names
-			allTypes = cat(1,this.type);
-			this = reshape(this,[],1);
-			allNames = {this.name};
+			tTypes = reshape({this.type},1,[]); % pre-script "t" is for "this"
+			tNames = reshape({this.name},1,[]);
 			
-			% Match against the type first
-			isTypeMatch = allTypes == type_; % I can check with == safely
-			% Reduce 'this' to a subset.
-			sub = this(isTypeMatch);
+			% Reduce to unique representation
+			[tTypesUniq,~,tOrigToUniq] = unique(tTypes);
+			[qTypesUniq,~,qOrigToUniq] = unique(qTypes);
+			% Create a way to map an index in the respective unique entry
+			% to the set of indices which matched that unique entry.
+			tMapToInds = accumarray(tOrigToUniq,(1:numel(tOrigToUniq))',[numel(tTypesUniq),1],@(indList){indList});
+			qMapToInds = accumarray(qOrigToUniq,(1:numel(qOrigToUniq))',[numel(qTypesUniq),1],@(indList){indList});
 			
-			% Further refine the 'sub' subset to match name as well
-			isNameMatch = strcmp(allNames(isTypeMatch),name_);
-			sub = sub(isNameMatch);
+			% Compare the unique sets to find matches.
+			typeMatchesCell = cellfun(@(qType)strcmp(qType,tTypesUniq),qTypesUniq,'UniformOutput',false);
+			typeMatches = cat(1,typeMatchesCell{:}); % qUniq x tUniq
+			% Find pairs of which of the unique type entries match up to
+			% each other between the q and t sets.
+			[qMatch,tMatch] = find(typeMatches);
+			
+			
+			% Preallocate output. qInds below indexes this, and will insert
+			% corresponding tInds values.
+			tIndFound = nan(size(qTypes));
+			% Loop over each match pair. Here, we'll compare everything
+			% that had a common type.
+			for typeMatchInd = 1:numel(qMatch)
+				
+				% Look up the indices of the q and t sets that we'll be
+				% comparing
+				tInds = tMapToInds{tMatch(typeMatchInd)};
+				qInds = qMapToInds{qMatch(typeMatchInd)};
+				
+				% Use unique to match these all at once. We will
+				% concatenate the relevant names and use unique to tell us
+				% the first instance of each unique entry. By placing the
+				% relevant tInds first, if a match exists inside tNames,
+				% then this will get priority. 'stable' ensures the tNames
+				% don't get reordered.
+				[~,~,firstNameMatch] = unique([tNames(tInds)';qNames(qInds)],'stable');
+				tIndsCount = numel(tInds);
+				% Discard trivial results, where tNames were compared to
+				% tNames.
+				firstNameMatch(1:tIndsCount) = [];
+				% firstNameMatch indexes tInds.
+				
+				% Test whether the matches found were inside the tNames set
+				wasMatched = firstNameMatch <= tIndsCount; % indexes qInds
+				
+				% Store the result.
+				tIndFound(qInds(wasMatched)) = tInds(firstNameMatch(wasMatched));
+				
+			end
 			
 		end
 		
