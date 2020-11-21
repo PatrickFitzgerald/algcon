@@ -27,6 +27,8 @@ v.b = q.nothing;
 v.c = v.a.hello.^2 + w.wrapper1(q);
 
 
+o.zeep = v.a;
+
 
 
 test

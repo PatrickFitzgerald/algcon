@@ -147,9 +147,18 @@ classdef AlgorithmConstructor < handle
 		
 		function doStuff(this)
 			
+			% Generate a list of output nodes.
+			outputNodeInds = this.infoNodes.find(Output.type,'*');
+			
 			% First, clean out the info nodes which we simply cannot
 			% define.
 			
+			
+% 			this.infoNodes(1).defs
+% this.snippets(5)
+% this.snippets(5).uses
+% this.infoNodes(2).defs
+% this.snippets(4).uses
 			
 		end
 		
@@ -191,7 +200,7 @@ classdef AlgorithmConstructor < handle
 			snippetIDsStretched = repelem(snippetIDs,numDetails);
 			
 			allVarNames = arrayfun(@(detail)[detail.type,'.',detail.name],allInfoNodeDetails,'UniformOutput',false);
-			[uniqVarNames,uniqToFirstOrig,origToUniq] = unique(allVarNames);
+			[~,uniqToFirstOrig,origToUniq] = unique(allVarNames);
 			
 			uniqTypes = {allInfoNodeDetails(uniqToFirstOrig).type};
 			uniqNames = {allInfoNodeDetails(uniqToFirstOrig).name};
@@ -209,8 +218,8 @@ classdef AlgorithmConstructor < handle
 			newInfoNodes = InfoNode.empty(0,1);
 			missingTypeNamePairs = find(isnan(matchedExistingINs))';
 			for uncreatedINind = missingTypeNamePairs
-				newINinds(end+1) = nextINind;
-				newInfoNodes(end+1) = this.createInfoNode(uniqTypes{uncreatedINind},uniqNames{uncreatedINind});
+				newINinds(end+1) = nextINind; %#ok<AGROW>
+				newInfoNodes(end+1) = this.createInfoNode(uniqTypes{uncreatedINind},uniqNames{uncreatedINind}); %#ok<AGROW>
 				nextINind = nextINind + 1;
 			end
 			% Now add these onto the list
@@ -246,6 +255,20 @@ classdef AlgorithmConstructor < handle
 				this.infoNodes(matchedExistingINs(uniqINind)).addDef(sourceSnippetIDs(isDefSubset));
 				% Add the uses
 				this.infoNodes(matchedExistingINs(uniqINind)).addUse(sourceSnippetIDs(isUseSubset));
+			end
+			
+			% Report the usage to each code snippet so they can keep track
+			% of that information.
+			cumulativeDetailEndInd = cumsum(numDetails);
+			for snippetInd = 1:numCS
+				% Determine which of the details corresponded to that snippet
+				detailInds = cumulativeDetailEndInd(snippetInd) + (1-numDetails(snippetInd):0);
+				isDef_ = isDef(detailInds);
+				isUse_ = isUse(detailInds);
+				infoNodeInds = matchedExistingINs(origToUniq(detailInds));
+				codeSnippets(snippetInd).report(...
+					unique(infoNodeInds(isDef_)),...
+					unique(infoNodeInds(isUse_)))
 			end
 			
 		end
