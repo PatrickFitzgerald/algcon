@@ -1,8 +1,8 @@
 classdef RawSnippet < CodeSnippet
 	
 	properties (GetAccess = private, SetAccess = private)
-		defs;
-		uses;
+		defs_;
+		uses_;
 	end
 	
 	methods (Access = public)
@@ -14,8 +14,8 @@ classdef RawSnippet < CodeSnippet
 			
 			this = this@CodeSnippet(sourceCode);
 			
-			this.defs = defs;
-			this.uses = uses;
+			this.defs_ = defs;
+			this.uses_ = uses;
 			
 		end
 		
@@ -26,9 +26,9 @@ classdef RawSnippet < CodeSnippet
 			end
 			
 			% Condense the list of defs and uses into one list (unique)
-			numDefs = numel(this.defs);
-			numUses = numel(this.uses);
-			[allINnames,~,oldToNewMap] = unique([this.defs(:),this.uses(:)]); % All defs, then all uses
+			numDefs = numel(this.defs_);
+			numUses = numel(this.uses_);
+			[allINnames,~,oldToNewMap] = unique([this.defs_(:),this.uses_(:)]); % All defs, then all uses
 			% allINnames = all InfoNode names. Entries are unique
 			numINnames = numel(allINnames);
 			% Merge the information on which lists the condensed names came

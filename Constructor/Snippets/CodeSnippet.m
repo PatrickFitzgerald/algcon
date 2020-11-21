@@ -3,6 +3,9 @@ classdef (Abstract) CodeSnippet < handle & matlab.mixin.Heterogeneous % The conc
 	properties (GetAccess = public, SetAccess = private)
 		sourceCode;
 		snippetID;
+		
+		defs = nan(1,0); % A list of all the InfoNode IDs that this snippet defines
+		uses = nan(1,0); % A list of all the InfoNode IDs that this snippet uses
 	end
 	
 	methods (Access = public)
@@ -13,6 +16,12 @@ classdef (Abstract) CodeSnippet < handle & matlab.mixin.Heterogeneous % The conc
 			this.sourceCode = sourceCode;
 			this.snippetID  = CodeSnippet.getNewID();
 			
+		end
+		
+		% Populates the defs, uses properties
+		function report(this,defs,uses)
+			this.defs = defs(:)';
+			this.uses = uses(:)';
 		end
 		
 	end
